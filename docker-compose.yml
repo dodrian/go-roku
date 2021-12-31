@@ -1,0 +1,14 @@
+version: '3'
+services:
+    go-roku:
+      build: .
+      ports: 
+        - '8000:8000'
+      environment:
+        - ROKU_URL=http://192.168.0.XXX:8060
+        - JELLYFIN_URL=http://192.168.0.XXX:8096
+        - JELLYFIN_API_KEY= # create this 
+        - JELLYFIN_USER_ID= # user id that created the API key
+        - JELLYFIN_CHANNEL_ID=592369 # double check this
+        - JELLYFIN_DEFAULT_LIBRARY= # lookup in Jellyfin web client
+        - GOROKU_URL=http://192.168.0.XXX:8000 # server you deploy to
