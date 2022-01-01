@@ -41,6 +41,7 @@ type ItemResponse struct {
     Items []Item
     JELLYFIN_URL string
     GOROKU_URL string
+    ROKU_URL string
 }
 
 var ROKU_URL string
@@ -92,6 +93,7 @@ func getItems() (ItemResponse, error) {
         }
         ir.GOROKU_URL = GOROKU_URL
         ir.JELLYFIN_URL = JELLYFIN_URL
+        ir.ROKU_URL = ROKU_URL
         return ir, nil
 }
 

@@ -6,14 +6,24 @@
   		function launch(id) {
   			var url = {{ .GOROKU_URL }} + "/series/" + id + "/episodes";
   			fetch(url, {
-			    method: 'POST', // *GET, POST, PUT, DELETE, etc.
+			    method: 'POST',
   			});
 
   		}
 
+      function roku_keypress(key) {
+        var url = {{ .ROKU_URL }} + "/keypress/" + key;
+        fetch(url, {
+          method: 'POST',
+        });
+
+      }
+
   	</script>
   </head>
   <body>
+
+
   	<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
   	  {{ range .Items }}
         <div class="col">
@@ -33,7 +43,36 @@
           </div>
         </div>
       {{ end }}  
+    </div>
+
+    <!-- Roku Remote -->
+    <div class="container m-t-3">
+      <div class="row row-cols-md-3 g-3">
+        <div class ="col">
+          <div class="d-grid gap-4">
+            <button class="btn btn-outline-dark" style="height: 140px" onclick="roku_keypress('Back')" type="button">Back</button>
+            <button class="btn btn-outline-dark" style="height: 140px" onclick="roku_keypress('Left')" type="button">Left</button>
+            <button class="btn btn-outline-dark" style="height: 140px" onclick="roku_keypress('Home')" type="button">Home</button>
+          </div>
+        </div>
+
+        <div class ="col">
+          <div class="d-grid gap-4">
+            <button class="btn btn-outline-dark" style="height: 140px" onclick="roku_keypress('Up')" type="button">Up</button>
+            <button class="btn btn-outline-dark" style="height: 140px" onclick="roku_keypress('Enter')" type="button">OK</button>
+            <button class="btn btn-outline-dark" style="height: 140px" onclick="roku_keypress('Down')" type="button">Down</button>
+          </div>
+        </div>
+
+        <div class ="col">
+          <div class="d-grid gap-4">
+            <button class="btn btn-outline-dark" style="height: 140px" onclick="roku_keypress('VolumeUp')" type="button">Vol Up</button>
+            <button class="btn btn-outline-dark" style="height: 140px" onclick="roku_keypress('Right')" type="button">Right</button>
+            <button class="btn btn-outline-dark" style="height: 140px" onclick="roku_keypress('VolumeDown')" type="button">Vol Down</button>
+          </div>
+        </div>
       </div>
-  	
+    </div>
+
   </body>
 </html>
