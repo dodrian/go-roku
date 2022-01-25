@@ -1,47 +1,47 @@
 package main
 
 import (
-    "fmt"
-    "net/http"
-    "html/template"
-    "os"
-    "github.com/gorilla/mux"
-    "encoding/json"
-    "strings"
-    "math/rand"
+	"encoding/json"
+	"fmt"
+	"github.com/gorilla/mux"
+	"html/template"
+	"math/rand"
+	"net/http"
+	"os"
+	"strings"
 )
 
-type SeasonResponse struct{
-    Items []Season
+type SeasonResponse struct {
+	Items []Season
 }
 
 type Season struct {
-    Id string
+	Id string
 }
 
-type EpisodeResponse struct{
-    Items []Episode
+type EpisodeResponse struct {
+	Items []Episode
 }
 
 type Episode struct {
-    Id string
+	Id string
 }
 
 type Item struct {
-    Id string
-    Name string
-    ImageTags ImageTag
+	Id        string
+	Name      string
+	ImageTags ImageTag
 }
 
 type ImageTag struct {
-    Primary string
+	Primary string
 }
 
 type ItemResponse struct {
-    Items []Item
-    JELLYFIN_URL string
-    GOROKU_URL string
-    ROKU_URL string
+	Items        []Item
+	JELLYFIN_URL string
+	GOROKU_URL   string
+	ROKU_URL     string
 }
 
 var ROKU_URL string
@@ -54,107 +54,104 @@ var GOROKU_URL string
 var client *http.Client
 
 func getEnv(key string) string {
-    if value, exists := os.LookupEnv(key); exists {
-        return value
-    }
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
 
-    return ""
+	return ""
 }
 
 func getSeasons(series string) []Season {
-        req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Shows/%s/Seasons", JELLYFIN_URL, series), nil)
-        req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
-        resp, _ := client.Do(req)
-        var sr SeasonResponse
-        _ = json.NewDecoder(resp.Body).Decode(&sr)
-        return sr.Items
-    } 
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Shows/%s/Seasons", JELLYFIN_URL, series), nil)
+	req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
+	resp, _ := client.Do(req)
+	var sr SeasonResponse
+	_ = json.NewDecoder(resp.Body).Decode(&sr)
+	return sr.Items
+}
 
 func getEpisodes(series, season string) []Episode {
-        req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Shows/%s/Episodes?SeasonId=%s", JELLYFIN_URL, series, season), nil)
-        req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
-        resp, _ := client.Do(req)
-        var er EpisodeResponse
-        _ = json.NewDecoder(resp.Body).Decode(&er)
-        return er.Items
-    }
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Shows/%s/Episodes?SeasonId=%s", JELLYFIN_URL, series, season), nil)
+	req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
+	resp, _ := client.Do(req)
+	var er EpisodeResponse
+	_ = json.NewDecoder(resp.Body).Decode(&er)
+	return er.Items
+}
 
 func getItems() (ItemResponse, error) {
-        req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&Fields=Name,Id&SortBy=SortName&SortOrder=Ascending&IncludeItemTypes=Series&Recursive=true&StartIndex=0&Limit=100&EnableImageTypes=Primary&ParentId=%s", JELLYFIN_URL, JELLYFIN_USER_ID, JELLYFIN_DEFAULT_LIBRARY), nil)
-        req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
-        resp, err := client.Do(req)
-        if err != nil {
-            return ItemResponse{}, err
-        }
-        var ir ItemResponse
-        err = json.NewDecoder(resp.Body).Decode(&ir)
-        if err != nil {
-            return ItemResponse{}, err
-        }
-        ir.GOROKU_URL = GOROKU_URL
-        ir.JELLYFIN_URL = JELLYFIN_URL
-        ir.ROKU_URL = ROKU_URL
-        return ir, nil
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&Fields=Name,Id&SortBy=SortName&SortOrder=Ascending&IncludeItemTypes=Series&Recursive=true&StartIndex=0&Limit=100&EnableImageTypes=Primary&ParentId=%s", JELLYFIN_URL, JELLYFIN_USER_ID, JELLYFIN_DEFAULT_LIBRARY), nil)
+	req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
+	resp, err := client.Do(req)
+	if err != nil {
+		return ItemResponse{}, err
+	}
+	var ir ItemResponse
+	err = json.NewDecoder(resp.Body).Decode(&ir)
+	if err != nil {
+		return ItemResponse{}, err
+	}
+	ir.GOROKU_URL = GOROKU_URL
+	ir.JELLYFIN_URL = JELLYFIN_URL
+	ir.ROKU_URL = ROKU_URL
+	return ir, nil
 }
 
 func main() {
 
-    ROKU_URL=getEnv("ROKU_URL")
-    JELLYFIN_URL=getEnv("JELLYFIN_URL")
-    JELLYFIN_API_KEY=getEnv("JELLYFIN_API_KEY")
-    JELLYFIN_CHANNEL_ID = getEnv("JELLYFIN_CHANNEL_ID")
-    JELLYFIN_DEFAULT_LIBRARY = getEnv("JELLYFIN_DEFAULT_LIBRARY")
-    JELLYFIN_USER_ID = getEnv("JELLYFIN_USER_ID")
-    GOROKU_URL = getEnv("GOROKU_URL")
+	ROKU_URL = getEnv("ROKU_URL")
+	JELLYFIN_URL = getEnv("JELLYFIN_URL")
+	JELLYFIN_API_KEY = getEnv("JELLYFIN_API_KEY")
+	JELLYFIN_CHANNEL_ID = getEnv("JELLYFIN_CHANNEL_ID")
+	JELLYFIN_DEFAULT_LIBRARY = getEnv("JELLYFIN_DEFAULT_LIBRARY")
+	JELLYFIN_USER_ID = getEnv("JELLYFIN_USER_ID")
+	GOROKU_URL = getEnv("GOROKU_URL")
 
+	client = &http.Client{}
 
-    client = &http.Client{
-    }
+	r := mux.NewRouter()
 
+	r.HandleFunc("/series/{series}/seasons", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		series := vars["series"]
+		seasons := getSeasons(series)
+		_ = json.NewEncoder(w).Encode(&seasons)
+		// fmt.Fprintf(w, "%v\n", seasons)
+	})
+	r.HandleFunc("/series/{series}/episodes", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		series := vars["series"]
+		seasons := getSeasons(series)
+		episodes := []Episode{}
+		for _, season := range seasons {
+			episodes = append(episodes, getEpisodes(series, season.Id)...)
+		}
+		if r.Method == "GET" {
+			_ = json.NewEncoder(w).Encode(&episodes)
+		} else if r.Method == "POST" {
+			episode := episodes[rand.Intn(len(episodes))].Id
+			req, err := http.NewRequest("POST", fmt.Sprintf("%s/launch/%s?contentID=%s&MediaType=Episode", ROKU_URL, JELLYFIN_CHANNEL_ID, episode), strings.NewReader(""))
+			if err != nil {
+				fmt.Fprintf(w, "Create Request: %v\n", err)
+				return
+			}
+			_, err = client.Do(req)
+			if err != nil {
+				fmt.Fprintf(w, "Post Request: %v\n", err)
+			}
+		}
+		//fmt.Fprintf(w, "%v\n", seasons)
+	})
+	r.HandleFunc("/series/", func(w http.ResponseWriter, r *http.Request) {
+		ir, _ := getItems()
+		_ = json.NewEncoder(w).Encode(&ir)
+	})
+	tmpl := template.Must(template.ParseFiles("assets/index.html"))
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		ir, _ := getItems()
+		tmpl.Execute(w, ir)
 
-    r := mux.NewRouter()
+	})
 
-    r.HandleFunc("/series/{series}/seasons", func (w http.ResponseWriter, r *http.Request) {
-        vars := mux.Vars(r)
-        series := vars["series"]
-        seasons := getSeasons(series)
-        _ = json.NewEncoder(w).Encode(&seasons)
-        // fmt.Fprintf(w, "%v\n", seasons)
-    })
-    r.HandleFunc("/series/{series}/episodes", func (w http.ResponseWriter, r *http.Request) {
-        vars := mux.Vars(r)
-        series := vars["series"]
-        seasons := getSeasons(series)
-        episodes := []Episode{}
-        for _, season := range seasons {
-            episodes = append(episodes, getEpisodes(series, season.Id)...)
-        }
-        if r.Method == "GET" {
-            _ = json.NewEncoder(w).Encode(&episodes)
-        } else if r.Method == "POST" {
-            episode := episodes[rand.Intn(len(episodes))].Id
-            req, err := http.NewRequest("POST", fmt.Sprintf("%s/launch/%s?contentID=%s&MediaType=Episode", ROKU_URL, JELLYFIN_CHANNEL_ID, episode), strings.NewReader(""))
-            if err != nil {
-                fmt.Fprintf(w, "Create Request: %v\n", err)
-                return
-            }
-            _, err = client.Do(req)
-            if err != nil {
-                fmt.Fprintf(w, "Post Request: %v\n", err)
-            }
-        }
-        //fmt.Fprintf(w, "%v\n", seasons)
-    })
-    r.HandleFunc("/series/", func (w http.ResponseWriter, r *http.Request) {
-        ir, _ := getItems()
-        _ = json.NewEncoder(w).Encode(&ir)
-    })
-    tmpl := template.Must(template.ParseFiles("assets/index.html"))
-    r.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
-        ir, _ := getItems()
-        tmpl.Execute(w, ir)
-
-    })
-
-    http.ListenAndServe(":8000", r)
+	http.ListenAndServe(":8000", r)
 }
