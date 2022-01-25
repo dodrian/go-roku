@@ -12,3 +12,4 @@ services:
         - JELLYFIN_CHANNEL_ID=592369 # double check this
         - JELLYFIN_DEFAULT_LIBRARY= # lookup in Jellyfin web client
         - GOROKU_URL=http://192.168.0.XXX:8000 # server you deploy to
+      restart: unless-stopped
