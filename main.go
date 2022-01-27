@@ -3,12 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
 	"html/template"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/gorilla/mux"
 )
 
 type SeasonResponse struct {
@@ -61,6 +63,13 @@ func getEnv(key string) string {
 	return ""
 }
 
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s", r.Method, r.RequestURI)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func getSeasons(series string) []Season {
 	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Shows/%s/Seasons", JELLYFIN_URL, series), nil)
 	req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
@@ -107,6 +116,8 @@ func main() {
 	JELLYFIN_USER_ID = getEnv("JELLYFIN_USER_ID")
 	GOROKU_URL = getEnv("GOROKU_URL")
 
+	log.SetOutput(os.Stdout)
+
 	client = &http.Client{}
 
 	r := mux.NewRouter()
@@ -152,6 +163,7 @@ func main() {
 		tmpl.Execute(w, ir)
 
 	})
+	r.Use(loggingMiddleware)
 
-	http.ListenAndServe(":8000", r)
+	log.Fatal(http.ListenAndServe(":8000", r))
 }
