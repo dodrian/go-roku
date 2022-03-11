@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -143,12 +144,15 @@ func main() {
 			episode := episodes[rand.Intn(len(episodes))].Id
 
 			// delete played state to play from beginning
-			req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/Users/%s/PlayedItems/%s", JELLYFIN_URL, JELLYFIN_USER_ID, episode), strings.NewReader(""))
-			if err != nil {
-				fmt.Fprintf(w, "delete request: %v\n", err)
+			req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/Users/%s/PlayedItems/%s", JELLYFIN_URL, JELLYFIN_USER_ID, episode), strings.NewReader(""))
+			res, _ := client.Do(req)
+			if res.StatusCode > 299 {
+				body, _ := io.ReadAll(res.Body)
+				res.Body.Close()
+				fmt.Fprintf(w, "Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
 			}
 
-			req, err = http.NewRequest("POST", fmt.Sprintf("%s/launch/%s?contentID=%s&MediaType=Episode", ROKU_URL, JELLYFIN_CHANNEL_ID, episode), strings.NewReader(""))
+			req, err := http.NewRequest("POST", fmt.Sprintf("%s/launch/%s?contentID=%s&MediaType=Episode", ROKU_URL, JELLYFIN_CHANNEL_ID, episode), strings.NewReader(""))
 			if err != nil {
 				fmt.Fprintf(w, "Create Request: %v\n", err)
 				return
