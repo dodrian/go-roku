@@ -141,7 +141,14 @@ func main() {
 			_ = json.NewEncoder(w).Encode(&episodes)
 		} else if r.Method == "POST" {
 			episode := episodes[rand.Intn(len(episodes))].Id
-			req, err := http.NewRequest("POST", fmt.Sprintf("%s/launch/%s?contentID=%s&MediaType=Episode", ROKU_URL, JELLYFIN_CHANNEL_ID, episode), strings.NewReader(""))
+
+			// delete played state to play from beginning
+			req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/Users/%s/PlayedItems/%s", JELLYFIN_URL, JELLYFIN_USER_ID, episode), strings.NewReader(""))
+			if err != nil {
+				fmt.Fprintf(w, "delete request: %v\n", err)
+			}
+
+			req, err = http.NewRequest("POST", fmt.Sprintf("%s/launch/%s?contentID=%s&MediaType=Episode", ROKU_URL, JELLYFIN_CHANNEL_ID, episode), strings.NewReader(""))
 			if err != nil {
 				fmt.Fprintf(w, "Create Request: %v\n", err)
 				return
