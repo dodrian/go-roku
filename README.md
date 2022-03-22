@@ -16,5 +16,4 @@ Run `docker-compose up -d --build` to launch server as a background process.
 * Pull down bootstrap CSS dependency when building docker image (so no calls need to leave local network)
 * Add a favicon so it looks nicer as a ad-hoc phone app
 * Fix image aspect ratios?
-* ~Auto-handle roku popup (continue where you left off?)~
 * debug / Fix cors issue  ?
