@@ -88,6 +88,31 @@ func getEpisodes(series, season string) []Episode {
 	return er.Items
 }
 
+func getLibraryHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	library := vars["library_id"]
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&Fields=Name,Id&SortBy=SortName&SortOrder=Ascending&Recursive=true&StartIndex=0&Limit=100&EnableImageTypes=Primary&ParentId=%s", JELLYFIN_URL, JELLYFIN_USER_ID, library), nil)
+	req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("error getting library %s: %s", library, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var ir ItemResponse
+	err = json.NewDecoder(resp.Body).Decode(&ir)
+	if err != nil {
+		log.Printf("error decoding ItemResponse for library %s: %s", library, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	ir.GOROKU_URL = GOROKU_URL
+	ir.JELLYFIN_URL = JELLYFIN_URL
+	ir.ROKU_URL = ROKU_URL
+	json.NewEncoder(w).Encode(&ir)
+}
+
 func getItems() (ItemResponse, error) {
 	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&Fields=Name,Id&SortBy=SortName&SortOrder=Ascending&IncludeItemTypes=Series&Recursive=true&StartIndex=0&Limit=100&EnableImageTypes=Primary&ParentId=%s", JELLYFIN_URL, JELLYFIN_USER_ID, JELLYFIN_DEFAULT_LIBRARY), nil)
 	req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
@@ -167,6 +192,7 @@ func main() {
 		ir, _ := getItems()
 		_ = json.NewEncoder(w).Encode(&ir)
 	})
+	r.HandleFunc("/library/{library_id}", getLibraryHandler)
 	tmpl := template.Must(template.ParseFiles("assets/index.html"))
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		ir, _ := getItems()
