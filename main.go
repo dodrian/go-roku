@@ -33,6 +33,7 @@ type Item struct {
 	Id        string
 	Name      string
 	ImageTags ImageTag
+	Type      string
 }
 
 type ImageTag struct {
@@ -40,10 +41,11 @@ type ImageTag struct {
 }
 
 type ItemResponse struct {
-	Items        []Item
-	JELLYFIN_URL string
-	GOROKU_URL   string
-	ROKU_URL     string
+	Items            []Item
+	TotalRecordCount int
+	JELLYFIN_URL     string
+	GOROKU_URL       string
+	ROKU_URL         string
 }
 
 var ROKU_URL string
@@ -88,10 +90,83 @@ func getEpisodes(series, season string) []Episode {
 	return er.Items
 }
 
+func playItemHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	itemID := vars["item_id"]
+
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&ids=%s&SortBy=SortName&SortOrder=Ascending&Recursive=False&StartIndex=0&Limit=100&EnableImageTypes=Primary", JELLYFIN_URL, JELLYFIN_USER_ID, itemID), nil)
+	req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("error getting item %s: %s", itemID, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var ir ItemResponse
+	err = json.NewDecoder(resp.Body).Decode(&ir)
+	if err != nil {
+		log.Printf("error decoding ItemResponse for item %s: %s", itemID, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var playable_id string
+	itemType := ir.Items[0].Type
+	switch {
+	case itemType == "Movie" || itemType == "Episode":
+		playable_id = ir.Items[0].Id
+
+	case ir.Items[0].Type == "Series":
+		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&ParentId=%s&SortBy=SortName&SortOrder=Ascending&IncludeItemTypes=Episode&Recursive=True&StartIndex=0&EnableImageTypes=Primary", JELLYFIN_URL, JELLYFIN_USER_ID, itemID), nil)
+		req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("error getting item as parent %s: %s", itemID, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		var ir ItemResponse
+		err = json.NewDecoder(resp.Body).Decode(&ir)
+		if err != nil {
+			log.Printf("error decoding ItemResponse for item parent %s: %s", itemID, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		playable_id = ir.Items[rand.Intn(len(ir.Items))].Id
+
+	default:
+		log.Printf("error switching type %s for item %s: %s", ir.Items[0].Type, itemID, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// delete played state to play from beginning
+	req, _ = http.NewRequest("DELETE", fmt.Sprintf("%s/Users/%s/PlayedItems/%s", JELLYFIN_URL, JELLYFIN_USER_ID, playable_id), strings.NewReader(""))
+	req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
+	_, err = client.Do(req)
+
+	if err != nil {
+		fmt.Fprintf(w, "Delete Request: %v\n", err)
+	}
+
+	req, err = http.NewRequest("POST", fmt.Sprintf("%s/launch/%s?contentID=%s", ROKU_URL, JELLYFIN_CHANNEL_ID, playable_id), strings.NewReader(""))
+	if err != nil {
+		fmt.Fprintf(w, "Create Request: %v\n", err)
+		return
+	}
+	_, err = client.Do(req)
+	if err != nil {
+		fmt.Fprintf(w, "Post Request: %v\n", err)
+	}
+
+}
+
 func getLibraryHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	library := vars["library_id"]
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&Fields=Name,Id&SortBy=SortName&SortOrder=Ascending&Recursive=true&StartIndex=0&Limit=100&EnableImageTypes=Primary&ParentId=%s", JELLYFIN_URL, JELLYFIN_USER_ID, library), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&Fields=Name,Id,IsSeries&SortBy=SortName&SortOrder=Ascending&Recursive=False&StartIndex=0&Limit=100&EnableImageTypes=Primary&ParentId=%s", JELLYFIN_URL, JELLYFIN_USER_ID, library), nil)
 	req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
 	resp, err := client.Do(req)
 	if err != nil {
@@ -114,7 +189,7 @@ func getLibraryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getItems() (ItemResponse, error) {
-	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&Fields=Name,Id&SortBy=SortName&SortOrder=Ascending&IncludeItemTypes=Series&Recursive=true&StartIndex=0&Limit=100&EnableImageTypes=Primary&ParentId=%s", JELLYFIN_URL, JELLYFIN_USER_ID, JELLYFIN_DEFAULT_LIBRARY), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&Fields=Name,Id,IsSeries&SortBy=SortName&SortOrder=Ascending&Recursive=False&StartIndex=0&Limit=100&EnableImageTypes=Primary&ParentId=%s", JELLYFIN_URL, JELLYFIN_USER_ID, JELLYFIN_DEFAULT_LIBRARY), nil)
 	req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
 	resp, err := client.Do(req)
 	if err != nil {
@@ -188,6 +263,7 @@ func main() {
 		}
 		//fmt.Fprintf(w, "%v\n", seasons)
 	})
+	r.HandleFunc("/play/{item_id}", playItemHandler)
 	r.HandleFunc("/series/", func(w http.ResponseWriter, r *http.Request) {
 		ir, _ := getItems()
 		_ = json.NewEncoder(w).Encode(&ir)
