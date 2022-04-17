@@ -23,6 +23,7 @@ WORKDIR /
 RUN mkdir assets
 COPY --from=build /go-roku /go-roku
 COPY assets/ assets/
+COPY config.json config.json
 
 EXPOSE 8000
 

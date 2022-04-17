@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -43,10 +44,6 @@ type ImageTag struct {
 type ItemResponse struct {
 	Items            []Item
 	TotalRecordCount int
-
-	JELLYFIN_URL string
-	GOROKU_URL   string
-	ROKU_URL     string
 }
 
 type Library struct {
@@ -58,6 +55,10 @@ type Library struct {
 
 type Index struct {
 	Libraries []Library
+
+	JELLYFIN_URL string
+	GOROKU_URL   string
+	ROKU_URL     string
 }
 
 var ROKU_URL string
@@ -200,9 +201,6 @@ func getItems(library string) (ItemResponse, error) {
 	if err != nil {
 		return ItemResponse{}, err
 	}
-	ir.GOROKU_URL = GOROKU_URL
-	ir.JELLYFIN_URL = JELLYFIN_URL
-	ir.ROKU_URL = ROKU_URL
 	return ir, nil
 }
 
@@ -217,6 +215,18 @@ func main() {
 	GOROKU_URL = getEnv("GOROKU_URL")
 
 	log.SetOutput(os.Stdout)
+
+	content, err := ioutil.ReadFile("./config.json")
+	if err != nil {
+		log.Fatal("Error when opening file: ", err)
+	}
+
+	// Now let's unmarshall the data into `payload`
+	var libraries []Library
+	err = json.Unmarshal(content, &libraries)
+	if err != nil {
+		log.Fatal("Error during Unmarshal(): ", err)
+	}
 
 	client = &http.Client{}
 
@@ -271,8 +281,24 @@ func main() {
 	r.HandleFunc("/library/{library_id}", getLibraryHandler)
 	tmpl := template.Must(template.ParseFiles("assets/index.html"))
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		ir, _ := getItems(JELLYFIN_DEFAULT_LIBRARY)
-		tmpl.Execute(w, ir)
+		for i := range libraries {
+			ir, err := getItems(libraries[i].Id)
+			if err != nil {
+				log.Printf("err getting library %s %s", libraries[i].Name, libraries[i].Id)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			libraries[i].ItemResponse = ir
+
+		}
+
+		index := Index{
+			Libraries:    libraries,
+			GOROKU_URL:   GOROKU_URL,
+			JELLYFIN_URL: JELLYFIN_URL,
+			ROKU_URL:     ROKU_URL,
+		}
+		tmpl.Execute(w, index)
 
 	})
 	r.Use(loggingMiddleware)
