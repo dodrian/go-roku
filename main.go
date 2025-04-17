@@ -130,7 +130,7 @@ func playItemHandler(w http.ResponseWriter, r *http.Request) {
 	case itemType == "Movie" || itemType == "Episode":
 		playable_id = ir.Items[0].Id
 
-	case ir.Items[0].Type == "Series":
+	case itemType == "Series":
 		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/Items?userId=%s&ParentId=%s&SortBy=SortName&SortOrder=Ascending&IncludeItemTypes=Episode&Recursive=True&StartIndex=0&EnableImageTypes=Primary", JELLYFIN_URL, JELLYFIN_USER_ID, itemID), nil)
 		req.Header.Add("X-Emby-Authorization", fmt.Sprintf(`MediaBrowser Token="%s"`, JELLYFIN_API_KEY))
 		resp, err := client.Do(req)
@@ -148,6 +148,7 @@ func playItemHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		playable_id = ir.Items[rand.Intn(len(ir.Items))].Id
+		itemType = "episode"
 
 	default:
 		log.Printf("error switching type %s for item %s: %s", ir.Items[0].Type, itemID, err)
